@@ -52,9 +52,9 @@ jobs:
     uses: ./.github/workflows/build.yml
     with:
       system: aarch64-linux
-      runner: ubuntu-latest
-      runner_for_virt: ubuntu-latest
-      runner_small: ubuntu-latest
+      runner: ubuntu-latest-arm
+      runner_for_virt: ubuntu-latest-arm
+      runner_small: ubuntu-latest-arm
     secrets:
       sentry_auth_token: ${{ secrets.SENTRY_AUTH_TOKEN }}
       sentry_org: ${{ secrets.SENTRY_ORG }}
