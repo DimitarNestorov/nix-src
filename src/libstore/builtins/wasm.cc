@@ -102,12 +102,6 @@ struct NixWasmInstancePre
         return unwrap(instantiate_pre(linker, module));
     }
 
-    NixWasmInstancePre(SourcePath wasmPath)
-        : name(wasmPath.baseName())
-        , instancePre(compile(string2span(wasmPath.readFile())))
-    {
-    }
-
     NixWasmInstancePre(std::string_view wat)
         : name("<inline wat>")
         , instancePre([&] {
