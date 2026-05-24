@@ -300,6 +300,9 @@ static void builtinWasm(const BuiltinBuilderContext & ctx)
         throw;
     }
 
+}
+
+
 static RegisterBuiltinBuilder registerWasm("wasm", builtinWasm);
 
 }  // namespace nix
