@@ -7,12 +7,13 @@ using namespace wasmtime;
 
 namespace nix {
 
-std::string remove_last_path_element(const std::string& path)
+std::string remove_last_path_element(const std::string & path)
 {
     std::filesystem::path p(path);
     return p.parent_path().string();
 }
-std::string last_path_element(const std::string& path)
+
+std::string last_path_element(const std::string & path)
 {
     std::filesystem::path p(path);
     return p.filename();
@@ -37,11 +38,6 @@ static Engine & getEngine()
         return Engine(std::move(config));
     }();
     return engine;
-}
-
-static std::span<uint8_t> string2span(std::string_view s)
-{
-    return std::span<uint8_t>((uint8_t *) s.data(), s.size());
 }
 
 static std::string_view span2string(std::span<uint8_t> s)
@@ -111,7 +107,6 @@ struct NixWasmInstancePre
     {
     }
 };
-
 
 struct NixWasmInstance
 {
@@ -214,7 +209,6 @@ struct LazyMakeRef
     }
 };
 
-
 /**
  * Callback for WASI stdout/stderr writes. It splits the output into lines and logs each line separately.
  */
@@ -244,22 +238,21 @@ struct WasiLogger
     }
 };
 
-
 static void builtinWasm(const BuiltinBuilderContext & ctx)
 {
-	auto wat = ctx.drv.env.at("wat"); // TODO: Check if defined
+    auto wat = ctx.drv.env.at("wat");     // TODO: Check if defined
     auto outPath = ctx.outputs.at("out"); // TODO: Support multiple outputs
-    
+
     try {
-        auto instance = NixWasmInstance { make_ref<NixWasmInstancePre>(wat) };
-        
+        auto instance = NixWasmInstance{make_ref<NixWasmInstancePre>(wat)};
+
         std::string functionName = "_start";
-        
+
         debug("calling wasm module");
 
         // auto argId = instance.addValue(firstArg);
 
-        WasiLogger wasiLogger { instance };
+        WasiLogger wasiLogger{instance};
 
         auto loggerTrampoline = [](void * data, const unsigned char * buf, size_t len) -> ptrdiff_t {
             auto wasiLogger = static_cast<WasiLogger *>(data);
@@ -273,20 +266,19 @@ static void builtinWasm(const BuiltinBuilderContext & ctx)
         wasi_config_set_stderr_custom(wasiConfig.capi(), loggerTrampoline, &wasiLogger, nullptr);
         std::string storePathStr = remove_last_path_element(outPath);
         debug("allowing access to path %s", storePathStr);
-        const char* storePath = storePathStr.c_str();
+        const char * storePath = storePathStr.c_str();
         wasi_config_preopen_dir(
             wasiConfig.capi(),
             storePath,
             "/store",
             WASMTIME_WASI_DIR_PERMS_READ | WASMTIME_WASI_DIR_PERMS_WRITE,
-            WASMTIME_WASI_FILE_PERMS_READ | WASMTIME_WASI_FILE_PERMS_WRITE
-        );
+            WASMTIME_WASI_FILE_PERMS_READ | WASMTIME_WASI_FILE_PERMS_WRITE);
         // TODO: Env vars
         // wasiConfig.argv({"wasi", std::to_string(argId)});
         unwrap(instance.wasmStore.context().set_wasi(std::move(wasiConfig)));
 
         auto outName = last_path_element(outPath);
-        const uint8_t* bytes = reinterpret_cast<const uint8_t*>(outName.data());
+        const uint8_t * bytes = reinterpret_cast<const uint8_t *>(outName.data());
         size_t len = outName.size();
         auto data = instance.memory();
         data[100] = len;
@@ -294,15 +286,13 @@ static void builtinWasm(const BuiltinBuilderContext & ctx)
 
         std::copy(bytes, bytes + len, data.begin() + offset);
 
-        auto results = instance.getExport<Func>(functionName).call(instance.wasmCtx, { /* args go here */ }).unwrap();
+        auto results = instance.getExport<Func>(functionName).call(instance.wasmCtx, {/* args go here */}).unwrap();
     } catch (Error & e) {
         // e.addTrace(state.positions[pos], "while building a Wasm module");
         throw;
     }
-
 }
-
 
 static RegisterBuiltinBuilder registerWasm("wasm", builtinWasm);
 
-}  // namespace nix
+} // namespace nix

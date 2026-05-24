@@ -39,4 +39,4 @@ derivation {
 EOF
 )
 
-nix build --impure --debug --expr "$testWasmBuilderDerivation"
+nix build --impure --debug --expr "$testWasmFibBuilderDerivation"
