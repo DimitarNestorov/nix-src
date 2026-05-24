@@ -2,7 +2,6 @@
 
 #include <filesystem>
 #include <wasmtime.hh>
-#include <boost/unordered/concurrent_flat_map.hpp>
 
 using namespace wasmtime;
 
