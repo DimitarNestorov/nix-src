@@ -273,22 +273,6 @@ configdata_priv.set_quoted(
 
 link_args = []
 
-wasmtime_required = get_option('wasm').disable_if(
-  get_option('default_library') == 'static',
-  error_message : 'Building with wasmtime and static linking is not supported',
-)
-
-if wasmtime_required.enabled()
-  link_args += '-lwasmtime'
-endif
-
-configdata_priv.set('NIX_USE_WASMTIME', wasmtime_required.enabled().to_int())
-
-config_priv_h = configure_file(
-  configuration : configdata_priv,
-  output : 'store-config-private.hh',
-)
-
 subdir('nix-meson-build-support/common')
 
 sources = files(
@@ -312,7 +296,6 @@ sources = files(
   'builtins/buildenv.cc',
   'builtins/fetchurl.cc',
   'builtins/unpack-channel.cc',
-  'builtins/wasm.cc',
   'common-protocol.cc',
   'common-ssh-store-config.cc',
   'content-address.cc',
@@ -374,6 +357,23 @@ sources = files(
   'uds-remote-store.cc',
   'worker-protocol-connection.cc',
   'worker-protocol.cc',
+)
+
+wasmtime_required = get_option('wasm').disable_if(
+  get_option('default_library') == 'static',
+  error_message : 'Building with wasmtime and static linking is not supported',
+)
+
+if wasmtime_required.enabled()
+  sources += files('builtins/wasm.cc')
+  link_args += '-lwasmtime'
+endif
+
+configdata_priv.set('NIX_USE_WASMTIME', wasmtime_required.enabled().to_int())
+
+config_priv_h = configure_file(
+  configuration : configdata_priv,
+  output : 'store-config-private.hh',
 )
 
 # AWS credentials code requires AWS CRT, so only compile when enabled
