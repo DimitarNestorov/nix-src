@@ -312,6 +312,7 @@ sources = files(
   'builtins/buildenv.cc',
   'builtins/fetchurl.cc',
   'builtins/unpack-channel.cc',
+  'builtins/wasm.cc',
   'common-protocol.cc',
   'common-ssh-store-config.cc',
   'content-address.cc',

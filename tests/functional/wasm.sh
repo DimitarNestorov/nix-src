@@ -15,3 +15,28 @@ fi
 [[ $(nix eval --json --impure \
     --extra-experimental-features wasm-builtin \
     --expr "builtins.wasm { path = ./fib.wasm; function = \"fib\"; } 40") = 165580141 ]]
+
+testWasmBuilderDerivation=$(cat <<'EOF'
+derivation {
+    name = "test-wasm-builder";
+    builder = "builtin:wasm";
+    system = "builtin";
+    wat = builtins.readFile ./wasm-builder.wat;
+}
+EOF
+)
+
+nix build --impure --debug --expr "$testWasmBuilderDerivation"
+
+
+testWasmFibBuilderDerivation=$(cat <<'EOF'
+derivation {
+    name = "test-wasm-builder";
+    builder = "builtin:wasm";
+    system = "builtin";
+    wat = builtins.readFile ./wasm-fib-builder.wat;
+}
+EOF
+)
+
+nix build --impure --debug --expr "$testWasmBuilderDerivation"
