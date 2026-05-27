@@ -240,8 +240,9 @@ struct WasiLogger
 
 static void builtinWasm(const BuiltinBuilderContext & ctx)
 {
-    auto wat = ctx.drv.env.at("wat");     // TODO: Check if defined
-    auto outPath = ctx.outputs.at("out"); // TODO: Support multiple outputs
+    auto env = ctx.drv.env;
+    auto outputs = ctx.outputs;
+    auto wat = env.at("wat"); // TODO: Check if defined
 
     try {
         auto instance = NixWasmInstance{make_ref<NixWasmInstancePre>(wat)};
@@ -264,27 +265,30 @@ static void builtinWasm(const BuiltinBuilderContext & ctx)
         WasiConfig wasiConfig;
         wasi_config_set_stdout_custom(wasiConfig.capi(), loggerTrampoline, &wasiLogger, nullptr);
         wasi_config_set_stderr_custom(wasiConfig.capi(), loggerTrampoline, &wasiLogger, nullptr);
-        std::string storePathStr = remove_last_path_element(outPath);
-        debug("allowing access to path %s", storePathStr);
-        const char * storePath = storePathStr.c_str();
-        wasi_config_preopen_dir(
-            wasiConfig.capi(),
-            storePath,
-            "/store",
-            WASMTIME_WASI_DIR_PERMS_READ | WASMTIME_WASI_DIR_PERMS_WRITE,
-            WASMTIME_WASI_FILE_PERMS_READ | WASMTIME_WASI_FILE_PERMS_WRITE);
-        // TODO: Env vars
+
+        size_t dirPermissions = WASMTIME_WASI_DIR_PERMS_READ | WASMTIME_WASI_DIR_PERMS_WRITE;
+        size_t filePermissions = WASMTIME_WASI_FILE_PERMS_READ | WASMTIME_WASI_FILE_PERMS_WRITE;
+        std::set<std::string> seenValues;
+        for (const auto & [key, value] : outputs) {
+            auto storePath = remove_last_path_element(value);
+            if (seenValues.find(storePath) != seenValues.end()) {
+                continue;
+            }
+
+            seenValues.insert(storePath);
+
+            debug("wasm-builder: preopening dir %s", storePath);
+            auto result = wasiConfig.preopen_dir(storePath, storePath, dirPermissions, filePermissions);
+
+            if (!result) {
+                debug("wasm-builder: failed to preopen dir %s", storePath);
+            }
+        }
         // wasiConfig.argv({"wasi", std::to_string(argId)});
+
+        std::vector<std::pair<std::string, std::string>> envVec(env.begin(), env.end());
+        wasiConfig.env(envVec);
         unwrap(instance.wasmStore.context().set_wasi(std::move(wasiConfig)));
-
-        auto outName = last_path_element(outPath);
-        const uint8_t * bytes = reinterpret_cast<const uint8_t *>(outName.data());
-        size_t len = outName.size();
-        auto data = instance.memory();
-        data[100] = len;
-        uint32_t offset = 200;
-
-        std::copy(bytes, bytes + len, data.begin() + offset);
 
         auto results = instance.getExport<Func>(functionName).call(instance.wasmCtx, {/* args go here */}).unwrap();
     } catch (Error & e) {

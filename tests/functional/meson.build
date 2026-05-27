@@ -180,6 +180,7 @@ suites = [
       'external-builders.sh',
       'wasm.sh',
       'sentry.sh',
+      'wasm/build/test.sh',
     ],
     'workdir' : meson.current_source_dir(),
   },
