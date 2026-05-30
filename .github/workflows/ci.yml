@@ -22,7 +22,7 @@ permissions:
 
 jobs:
   eval:
-    runs-on: UbuntuLatest32Cores128G
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
@@ -34,8 +34,8 @@ jobs:
     uses: ./.github/workflows/build.yml
     with:
       system: x86_64-linux
-      runner: namespace-profile-linuxamd32c64g-cache
-      runner_for_virt: UbuntuLatest32Cores128G
+      runner: ubuntu-latest
+      runner_for_virt: ubuntu-latest
       runner_small: ubuntu-latest
       run_tests: true
       run_vm_tests: true
@@ -51,20 +51,10 @@ jobs:
   build_aarch64-linux:
     uses: ./.github/workflows/build.yml
     with:
-      if: ${{
-            github.event_name != 'pull_request'
-            || (
-              github.event.pull_request.head.repo.full_name == 'DeterminateSystems/nix-src'
-              && (
-                (github.event.action == 'labeled' && github.event.label.name == 'upload to s3')
-                || (github.event.action != 'labeled' && contains(github.event.pull_request.labels.*.name, 'upload to s3'))
-              )
-            )
-          }}
       system: aarch64-linux
-      runner: UbuntuLatest32Cores128GArm
-      runner_for_virt: UbuntuLatest32Cores128GArm
-      runner_small: UbuntuLatest32Cores128GArm
+      runner: ubuntu-24.04-arm
+      runner_for_virt: ubuntu-24.04-arm
+      runner_small: ubuntu-24.04-arm
     secrets:
       sentry_auth_token: ${{ secrets.SENTRY_AUTH_TOKEN }}
       sentry_org: ${{ secrets.SENTRY_ORG }}
@@ -74,97 +64,10 @@ jobs:
     uses: ./.github/workflows/build.yml
     with:
       system: aarch64-darwin
-      runner: namespace-profile-mac-m2-12c28g
-      runner_for_virt: namespace-profile-mac-m2-12c28g
-      runner_small: macos-latest-xlarge
+      runner: macos-latest
+      runner_for_virt: macos-latest
+      runner_small: macos-latest
     secrets:
       sentry_auth_token: ${{ secrets.SENTRY_AUTH_TOKEN }}
       sentry_org: ${{ secrets.SENTRY_ORG }}
       sentry_project: ${{ secrets.SENTRY_PROJECT }}
-
-  success:
-    runs-on: ubuntu-latest
-    needs:
-      - eval
-      - build_x86_64-linux
-      - build_aarch64-linux
-      - build_aarch64-darwin
-    if: ${{ always() }}
-    steps:
-      - run: "true"
-      - run: |
-          echo "A dependent in the build matrix failed:"
-          echo "$needs"
-          exit 1
-        env:
-          needs: ${{ toJSON(needs) }}
-        if: |
-          contains(needs.*.result, 'failure') ||
-          contains(needs.*.result, 'cancelled')
-
-      - uses: actions/checkout@v4
-      - uses: DeterminateSystems/determinate-nix-action@main
-
-      - name: Create artifacts directory
-        run: mkdir -p ./artifacts
-
-      - name: Fetch artifacts
-        uses: actions/download-artifact@v7
-        with:
-          path: downloaded
-      - name: Move downloaded artifacts to artifacts directory
-        run: |
-          for dir in ./downloaded/*; do
-            arch="$(basename "$dir")"
-            mv "$dir"/*.xz ./artifacts/"${arch}"
-          done
-
-      - name: Build fallback-paths.nix
-        if: ${{
-              github.event_name != 'pull_request'
-              || (
-                github.event.pull_request.head.repo.full_name == 'DeterminateSystems/nix-src'
-                && (
-                  (github.event.action == 'labeled' && github.event.label.name == 'upload to s3')
-                  || (github.event.action != 'labeled' && contains(github.event.pull_request.labels.*.name, 'upload to s3'))
-                )
-              )
-            }}
-        run: |
-          nix build .#fallbackPathsNix --out-link fallback
-          cat fallback > ./artifacts/fallback-paths.nix
-
-      - uses: DeterminateSystems/push-artifact-ids@main
-        with:
-          s3_upload_role: ${{ secrets.AWS_S3_UPLOAD_ROLE_ARN }}
-          bucket: ${{ secrets.AWS_S3_UPLOAD_BUCKET_NAME }}
-          directory: ./artifacts
-          ids_project_name: determinate-nix
-          ids_binary_prefix: determinate-nix
-          skip_acl: true
-          allowed_branches: '["main"]'
-
-  publish:
-    needs:
-      - success
-    if: (!github.repository.fork && (github.ref == format('refs/heads/{0}', github.event.repository.default_branch) || startsWith(github.ref, 'refs/tags/')))
-    environment: ${{ github.event_name == 'release' && 'production' || '' }}
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-      id-token: write
-    steps:
-      - uses: actions/checkout@v4
-      - uses: DeterminateSystems/determinate-nix-action@main
-      - uses: DeterminateSystems/flakehub-push@main
-        with:
-          rolling: ${{ github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
-          visibility: "public"
-          tag: "${{ github.ref_name }}"
-      - name: Update the release notes
-        if: startsWith(github.ref, 'refs/tags/')
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          TAG_NAME: ${{ github.ref_name }}
-        run: |
-          gh release edit "$TAG_NAME" --notes-file doc/manual/source/release-notes-determinate/"$TAG_NAME".md || true
