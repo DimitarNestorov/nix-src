@@ -1,4 +1,5 @@
 #include "nix/store/builtins.hh"
+#include "nix/util/error.hh"
 
 #include <filesystem>
 #include <wasmtime.hh>
@@ -242,14 +243,18 @@ static void builtinWasm(const BuiltinBuilderContext & ctx)
 {
     auto env = ctx.drv.env;
     auto outputs = ctx.outputs;
-    auto wat = env.at("wat"); // TODO: Check if defined
+    auto tmpDirInSandbox = ctx.tmpDirInSandbox.string();
+    if (env.find("wat") == env.end()) { // TODO: Accept wasm files
+        throw Error("wat key missing");
+    }
+    auto wat = env.at("wat");
 
     try {
         auto instance = NixWasmInstance{make_ref<NixWasmInstancePre>(wat)};
 
         std::string functionName = "_start";
 
-        debug("calling wasm module");
+        debug("wasm-builder: calling wasm module");
 
         // auto argId = instance.addValue(firstArg);
 
@@ -266,8 +271,21 @@ static void builtinWasm(const BuiltinBuilderContext & ctx)
         wasi_config_set_stdout_custom(wasiConfig.capi(), loggerTrampoline, &wasiLogger, nullptr);
         wasi_config_set_stderr_custom(wasiConfig.capi(), loggerTrampoline, &wasiLogger, nullptr);
 
-        size_t dirPermissions = WASMTIME_WASI_DIR_PERMS_READ | WASMTIME_WASI_DIR_PERMS_WRITE;
-        size_t filePermissions = WASMTIME_WASI_FILE_PERMS_READ | WASMTIME_WASI_FILE_PERMS_WRITE;
+        auto preopenDir = [&](const std::string & dir) {
+            debug("wasm-builder: preopening dir %s", dir);
+            auto result = wasiConfig.preopen_dir(
+                dir,
+                dir,
+                WASMTIME_WASI_DIR_PERMS_READ | WASMTIME_WASI_DIR_PERMS_WRITE,
+                WASMTIME_WASI_FILE_PERMS_READ | WASMTIME_WASI_FILE_PERMS_WRITE);
+
+            if (!result) {
+                debug("wasm-builder: failed to preopen dir %s", dir);
+            }
+        };
+
+        preopenDir(tmpDirInSandbox);
+
         std::set<std::string> seenValues;
         for (const auto & [key, value] : outputs) {
             auto storePath = remove_last_path_element(value);
@@ -276,17 +294,17 @@ static void builtinWasm(const BuiltinBuilderContext & ctx)
             }
 
             seenValues.insert(storePath);
-
-            debug("wasm-builder: preopening dir %s", storePath);
-            auto result = wasiConfig.preopen_dir(storePath, storePath, dirPermissions, filePermissions);
-
-            if (!result) {
-                debug("wasm-builder: failed to preopen dir %s", storePath);
-            }
+            preopenDir(storePath);
         }
         // wasiConfig.argv({"wasi", std::to_string(argId)});
 
         std::vector<std::pair<std::string, std::string>> envVec(env.begin(), env.end());
+
+        // TODO: Test it's not getting overriden
+        // TODO: Document
+        // TODO: Check WASI 0.2
+        envVec.push_back({"PWD", tmpDirInSandbox});
+
         wasiConfig.env(envVec);
         unwrap(instance.wasmStore.context().set_wasi(std::move(wasiConfig)));
 

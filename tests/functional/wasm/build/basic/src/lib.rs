@@ -27,12 +27,12 @@ pub extern "C" fn _start() {
         let dev = env::var("dev")
             .expect("environment variable 'dev' is not set");
 
-        let devPath = Path::new(&dev);
-        fs::create_dir_all(&devPath)
+        let dev_path = Path::new(&dev);
+        fs::create_dir_all(&dev_path)
             .expect("failed to create dev directory");
 
-        let testHeaderPath = devPath.join("test.h");
-        let mut file = fs::File::create(&testHeaderPath)
+        let test_header_path = dev_path.join("test.h");
+        let mut file = fs::File::create(&test_header_path)
             .expect("failed to create test.h");
 
         file.write_all(
