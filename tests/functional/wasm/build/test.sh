@@ -7,3 +7,5 @@ nix --extra-experimental-features "wasm-builtin ca-derivations" build --debug ./
 nix-store --gc # TODO: Check that both basic and depends-on-basic are there
 
 nix --extra-experimental-features "wasm-builtin ca-derivations" build --debug ./wasm/build#input-srcs # TODO: Check result!!!!
+
+nix --extra-experimental-features "wasm-builtin ca-derivations" build --debug ./wasm/build#argv # TODO: Check result!!!!

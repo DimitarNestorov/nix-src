@@ -296,7 +296,10 @@ static void builtinWasm(const BuiltinBuilderContext & ctx)
             seenValues.insert(storePath);
             preopenDir(storePath);
         }
-        // wasiConfig.argv({"wasi", std::to_string(argId)});
+
+        auto args = ctx.drv.args;
+        std::vector<std::string> argv(args.begin(), args.end());
+        wasiConfig.argv(argv);
 
         std::vector<std::pair<std::string, std::string>> envVec(env.begin(), env.end());
 
@@ -308,7 +311,7 @@ static void builtinWasm(const BuiltinBuilderContext & ctx)
         wasiConfig.env(envVec);
         unwrap(instance.wasmStore.context().set_wasi(std::move(wasiConfig)));
 
-        auto results = instance.getExport<Func>(functionName).call(instance.wasmCtx, {/* args go here */}).unwrap();
+        auto results = instance.getExport<Func>(functionName).call(instance.wasmCtx, {}).unwrap();
     } catch (Error & e) {
         // e.addTrace(state.positions[pos], "while building a Wasm module");
         throw;

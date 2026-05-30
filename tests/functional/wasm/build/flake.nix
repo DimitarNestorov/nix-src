@@ -5,9 +5,15 @@
       basic = import ./basic;
       depends-on-basic = import ./depends-on-basic { inherit basic; };
       input-srcs = import ./input-srcs;
+      argv = import ./argv;
 
       allPackages = {
-        inherit basic depends-on-basic input-srcs;
+        inherit
+          basic
+          depends-on-basic
+          input-srcs
+          argv
+          ;
       };
     in
     {
