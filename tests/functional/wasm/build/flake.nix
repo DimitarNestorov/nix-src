@@ -4,9 +4,10 @@
     let
       basic = import ./basic;
       depends-on-basic = import ./depends-on-basic { inherit basic; };
+      input-srcs = import ./input-srcs;
 
       allPackages = {
-        inherit basic depends-on-basic;
+        inherit basic depends-on-basic input-srcs;
       };
     in
     {
